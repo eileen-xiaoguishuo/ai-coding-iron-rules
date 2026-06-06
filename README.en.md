@@ -66,24 +66,32 @@ If you also code with AI, I hope these save you the detours I took.
 
 ---
 
+### 7. Parallel work: before you start, make sure nobody's already on it
+
+**Trap**: I had several workstreams running at once (think of them as several people, or several AI agents, in parallel). Two independently built the same feature — duplicated effort is the small problem; worse, one had already finished and shipped it, the other didn't know, and — assuming "this isn't live yet" — nearly overwrote the shipped new version with its own older one (a straight regression).
+
+**Rule**: Before starting a feature that might collide with someone else's work, spend a minute confirming nobody's already doing it or has already done it — check the shared progress log, the commit history, the actual live state. Especially when judging "is this already in production," go check production's real state; don't conclude "it's not live" just because "I don't have it locally."
+
+**Why**: Parallelism buys speed at the cost of information sync. Duplicated work just wastes time; overwriting someone's shipped version with an older one is a real regression. "I don't have it" never means "nobody has it" — a local absence isn't a global absence.
+
 ## 3. Debugging: where to look first
 
-### 7. "My change didn't take effect" — first confirm you're testing the new version
+### 8. "My change didn't take effect" — first confirm you're testing the new version
 **The trap**: I changed the code, it didn't take effect, I suspected the code for ages — turns out I was testing a stale build / an old process / the wrong environment.
 **The rule**: When "the behavior didn't change," **the first step isn't reading code — it's confirming you're testing the new version**: Is the build artifact's timestamp fresh? Is it the new process? Which environment are you hitting?
 **Why**: More than half of "the change didn't work" illusions are you validating against something stale. Rule that out first and save endless dead-end debugging.
 
-### 8. Don't bury yourself in code — check the runtime first
+### 9. Don't bury yourself in code — check the runtime first
 **The trap**: UI didn't render / data was wrong / an API errored, and I dove straight into reading the code logic for ages.
 **The rule**: For these symptoms, **check the runtime state first** — logs (reload timestamps), the actual data, the browser Network panel, curl the endpoint directly.
 **Why**: The symptom usually isn't in the code you assume it's in. The runtime truth is ten times faster than reading code cold.
 
-### 9. "Parsed 0 records" — first look at what the raw data actually looks like
+### 10. "Parsed 0 records" — first look at what the raw data actually looks like
 **The trap**: An import/parse reported "0 records, nothing matched." I suspected the business logic — but the raw data wasn't shaped the way I assumed (it was encoded, the real header was on a different row, the column names were variants).
 **The rule**: When a parse comes back empty, **dump one raw record and look at it first**: Is it encoded? Which row is the real header? Are the field names variants? Never let `except: continue` silently swallow parse errors.
 **Why**: When the source is dirty, suspecting the logic is chasing the wrong thing. See the input clearly before you discuss processing.
 
-### 10. Don't trust surface signals (status codes / mirrors / caches)
+### 11. Don't trust surface signals (status codes / mirrors / caches)
 **The trap**: I used a status code to decide whether an endpoint existed — but the auth layer intercepted before routing, returning the same code whether or not it existed. It fooled me.
 **The rule**: Check the **authoritative source that's actually in effect**, not side signals that go stale or get rewritten by middle layers (status codes, local mirrors, caches, what the UI shows).
 **Why**: Surface signals often disagree with the underlying truth. When you're stuck, go back to the authoritative data.
@@ -92,17 +100,17 @@ If you also code with AI, I hope these save you the detours I took.
 
 ## 4. Shipping: before you say "it's done"
 
-### 11. Before you say "it's done," verify it yourself once
+### 12. Before you say "it's done," verify it yourself once
 **The trap**: The AI (and I) said "ready to test," and the user clicked it into a white screen / an error. I'd turned them into my test machine.
 **The rule**: Before handing off, **walk the real flow yourself**. For front-end especially: actually open it, no blank screen, the key path is clickable. "Tests pass" at the API layer ≠ pass from the user's point of view.
 **Why**: An unverified "done" is gambling with someone else's time. Verifying once costs far less than making them hit the bug and come back.
 
-### 12. "Works on mine" ≠ "works on theirs"
+### 13. "Works on mine" ≠ "works on theirs"
 **The trap**: A user's screenshot showed a problem (a seam / misalignment / wrong display); I couldn't reproduce it locally no matter what. We talked past each other.
 **The rule**: When you can't reproduce, **match the user's real environment** — their screen zoom level, device, browser. For visual bugs, zoom into the pixels with a tool; don't rely on "looks fine to me."
 **Why**: Zoom, DPI, and device differences make the same code render differently on each side. The user's view is the source of truth.
 
-### 13. The default for a dangerous action must be "do nothing"
+### 14. The default for a dangerous action must be "do nothing"
 **The trap**: A merge / delete / bulk-edit tool defaulted to "execute," and a slip of the hand caused a mistake.
 **The rule**: For dangerous actions — delete, merge, dedup, bulk-edit — **the default must be no-op**; require an explicit opt-in each time before it runs.
 **Why**: An accidental delete should require real effort to trigger. Making destructive actions opt-in is insurance for your future self.
@@ -111,17 +119,17 @@ If you also code with AI, I hope these save you the detours I took.
 
 ## 5. Data & security
 
-### 14. Clean external data before it enters your store — dirty source, dirty everything
+### 15. Clean external data before it enters your store — dirty source, dirty everything
 **The trap**: I loaded an external table (Excel / scraped data) straight into the database; the dirty data contaminated a whole swath, and once it was in, fixing it was whack-a-mole.
 **The rule**: **Before** treating external data as an authoritative source, produce a "health report" and clean it (merged cells, broken formats, typos, absurd values). Make ingestion idempotent — re-runs only correct, never duplicate.
 **Why**: A dirty source means everything downstream is dirty, and you can't trace which cell caused it. Stopping it at the door is far cheaper than cleaning the house afterward.
 
-### 15. Comparing strings across sources? Normalize first (whitespace / case)
+### 16. Comparing strings across sources? Normalize first (whitespace / case)
 **The trap**: Two datasets matched by name wouldn't line up at all — they differed by a single space / letter case, judged "no match" by strict equality, and a whole batch was dropped.
 **The rule**: Before comparing strings across systems, **always normalize**: strip whitespace, unify case, then compare. Don't use bare `==`.
 **Why**: Stray whitespace and case differences in external data are extremely common. When a comparison stalls, nine times out of ten it's missing normalization.
 
-### 16. Secrets & keys: never a default value, never in the repo
+### 17. Secrets & keys: never a default value, never in the repo
 **The trap**: A key was read as "use a default if not set"; that default secret got pushed to the repo with the code and sat there for over a month unnoticed.
 **The rule**: Keys / passwords / tokens must **fail loud if unset** — never a fallback default. Before making any code public, scan it for embedded credentials.
 **Why**: Defaults quietly become production config; a key in a public repo may be scraped even after you delete it. **If you're about to share code on GitHub, burn this one into your memory.**
