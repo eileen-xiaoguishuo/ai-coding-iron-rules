@@ -120,31 +120,36 @@ If you also code with AI, I hope these save you the detours I took.
 **The rule**: After the unit tests are green, **smoke-test once against the real environment** — real database, real external dependencies (present, or genuinely absent), and if you can start the service, actually start it and run through it. How much a green light is worth depends on how close your test doubles are to the real thing.
 **Why**: A mocked test only proves "the logic is right," not "it actually connects." Many clients connect lazily (no error on creation, only when first used), so a fake double always connects — and the unit test can never catch the path where the real dependency is down.
 
+### 16. Before you deploy, confirm your branch's base is what's actually running in production
+**The trap**: I built a whole new feature on a branch, finished it, tested it, got ready to deploy — and only then found the branch was hundreds of commits behind what production was actually running. Production had a pile of modules my branch didn't even have. A routine "push the whole branch" deploy would have deleted all of them.
+**The rule**: Before you start building, check how far your branch is from what's actually live (if it's far behind, realign the base first). Before you deploy, diff the *real files on the server* against what you're about to push, and confirm you're only adding your own changes — not wiping out someone else's. Never assume "my branch = production."
+**Why**: "My branch = production" is an assumption that's far too easy to make, especially when several people (or windows) work in parallel — production may have moved way ahead, and the branch in your hand could be an old snapshot. One-click deploy tools often carry "delete whatever isn't in my tree" semantics; if the base is wrong, that's a wide-blast production incident. A minute spent comparing the real state beats rolling back an outage.
+
 ---
 
 ## 5. Data & security
 
-### 16. Clean external data before it enters your store — dirty source, dirty everything
+### 17. Clean external data before it enters your store — dirty source, dirty everything
 **The trap**: I loaded an external table (Excel / scraped data) straight into the database; the dirty data contaminated a whole swath, and once it was in, fixing it was whack-a-mole.
 **The rule**: **Before** treating external data as an authoritative source, produce a "health report" and clean it (merged cells, broken formats, typos, absurd values). Make ingestion idempotent — re-runs only correct, never duplicate.
 **Why**: A dirty source means everything downstream is dirty, and you can't trace which cell caused it. Stopping it at the door is far cheaper than cleaning the house afterward.
 
-### 17. Comparing strings across sources? Normalize first (whitespace / case)
+### 18. Comparing strings across sources? Normalize first (whitespace / case)
 **The trap**: Two datasets matched by name wouldn't line up at all — they differed by a single space / letter case, judged "no match" by strict equality, and a whole batch was dropped.
 **The rule**: Before comparing strings across systems, **always normalize**: strip whitespace, unify case, then compare. Don't use bare `==`.
 **Why**: Stray whitespace and case differences in external data are extremely common. When a comparison stalls, nine times out of ten it's missing normalization.
 
-### 18. Testing a feature that writes data? Never touch the user's real data
+### 19. Testing a feature that writes data? Never touch the user's real data
 **The trap**: To verify a "save / write" feature, I took the lazy path and tested against the user's real data. One save in the middle **silently deleted** data the user had already finished but that "didn't meet the condition" at that moment. I "undid" the operation at the end of the test — but that write had already corrupted the file.
 **The rule**: To test anything that "saves / persists / writes," **never run it on the user's real data** — copy it first, or point at an isolated temp directory. Beware "full-rewrite" saves especially (regenerate the whole set, keep only items meeting a condition): any item in memory that "doesn't meet the condition right now" is gone for good once you save.
 **Why**: "Undo the action" is not "undo the side effect" — you can undo a flag, but not the write that already hit disk midway. Verifying with evidence is right; verifying in a way that corrupts the user's data is not.
 
-### 19. Don't let an automated rerun overwrite the user's manual work
+### 20. Don't let an automated rerun overwrite the user's manual work
 **The trap**: The user's manual work (confirmations, renames, bindings) and the machine's auto-generated raw data lived in the **same file**. To fix a small issue I reran the "regenerate" flow several times, each overwriting the whole file — wiping out the manual work the user had painstakingly done. All they saw was "why did it revert again?"; I only found it was my overwrite by digging through the code.
 **The rule**: Before any "regenerate / rerun / re-sync" logic that overwrites a whole file, ask: does this file hold any of the user's manual work? If yes — **store the manual part somewhere separate**, merge it back after the automated flow runs, never blind-overwrite. Raw data can be regenerated at will; **manual work is append-only, never wiped.**
 **Why**: Mixing machine output and human labor in one overwritable file is an accident waiting to happen. Recovering it relied on a backup that happened to exist — luck, not a mechanism. When debugging "it didn't save / it reverted," the first thing to suspect is: did one of my own reruns wipe it?
 
-### 20. Secrets & keys: never a default value, never in the repo
+### 21. Secrets & keys: never a default value, never in the repo
 **The trap**: A key was read as "use a default if not set"; that default secret got pushed to the repo with the code and sat there for over a month unnoticed.
 **The rule**: Keys / passwords / tokens must **fail loud if unset** — never a fallback default. Before making any code public, scan it for embedded credentials.
 **Why**: Defaults quietly become production config; a key in a public repo may be scraped even after you delete it. **If you're about to share code on GitHub, burn this one into your memory.**
